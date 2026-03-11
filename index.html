@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shuffle Snap - Image Puzzle Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Main Menu -->
+    <div id="main-menu">
+        <div id="animated-background"></div>
+        <div class="menu-content">
+            <h1 class="game-title">SHUFFLE SNAP</h1>
+            <p class="subtitle">Reassemble the Puzzle!</p>
+            <button id="start-btn" class="main-button">START GAME</button>
+        </div>
+    </div>
+    
+    <!-- Difficulty Selection -->
+    <div id="difficulty-screen" class="hidden">
+        <h2>SELECT DIFFICULTY</h2>
+        <div class="difficulty-buttons">
+            <button data-difficulty="easy" class="difficulty-btn easy">
+                <span class="label">EASY</span>
+                <span class="grid-size">5×5</span>
+                <span class="time">60s</span>
+            </button>
+            <button data-difficulty="medium" class="difficulty-btn medium">
+                <span class="label">MEDIUM</span>
+                <span class="grid-size">8×8</span>
+                <span class="time">90s</span>
+            </button>
+            <button data-difficulty="hard" class="difficulty-btn hard">
+                <span class="label">HARD</span>
+                <span class="grid-size">12×12</span>
+                <span class="time">120s</span>
+            </button>
+        </div>
+        <button id="back-to-menu" class="back-button">← BACK</button>
+    </div>
+    
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden">
+        <div id="preview-container">
+            <p>MEMORIZE THE IMAGE!</p>
+            <div id="preview-image"></div>
+            <div id="preview-timer">5</div>
+        </div>
+        
+        <div id="puzzle-container" class="hidden">
+            <div id="game-header">
+                <div id="timer-display">
+                    <span class="label">TIME</span>
+                    <span id="time-left">60</span>s
+                </div>
+                <button id="show-hint-btn" class="hint-button">👁️ HINT</button>
+            </div>
+            
+            <div id="puzzle-board"></div>
+        </div>
+    </div>
+    
+    <!-- Win Screen -->
+    <div id="win-screen" class="hidden">
+        <h1>🎉 PUZZLE COMPLETE! 🎉</h1>
+        <div class="score-display">
+            <p class="score-label">YOUR SCORE</p>
+            <p id="final-score" class="score-value">0</p>
+        </div>
+        <p id="feedback-message" class="feedback-message"></p>
+        <button id="return-to-menu" class="main-button">MAIN MENU</button>
+    </div>
+    
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="hidden">
+        <h1>⏰ TIME'S UP! ⏰</h1>
+        <p class="game-over-message">Don't give up! Try again!</p>
+        <button id="try-again-btn" class="main-button">TRY AGAIN</button>
+    </div>
+
+    <!-- Three.js for animated background -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Game Script -->
+    <script src="script.js"></script>
+</body>
+</html>
