@@ -383,6 +383,12 @@ function createPuzzleBoard() {
     gameState.pieces.forEach((piece, index) => {
         const pieceElement = document.createElement('div');
         pieceElement.className = 'puzzle-piece';
+        
+        // Calculate piece size dynamically
+        const paddingAndBorder = 34; // 15px padding * 2 + 2px border * 2 + some gap
+        const actualSize = maxSize - paddingAndBorder;
+        const pieceSize = actualSize / gridSize;
+        
         pieceElement.style.width = `${pieceSize}px`;
         pieceElement.style.height = `${pieceSize}px`;
         pieceElement.style.backgroundImage = `url(${currentImage})`;
