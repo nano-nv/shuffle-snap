@@ -264,21 +264,38 @@ async function startGame(difficulty) {
 }
 
 async function selectRandomImage() {
-    // Try to load from assets folder, fallback to default
-    const images = [...imageAssets, CONFIG.defaultImage];
+    // List of available images in assets folder
+    const availableImages = [
+        'assets/default-puzzle.jpg',
+        'assets/nature.jpg'
+        // Add more images here as you add them to the assets folder
+    ];
     
-    for (const imgPath of images) {
+    // Try each image until one loads successfully
+    for (const imgPath of availableImages) {
         try {
-            const response = await fetch(imgPath);
-            if (response.ok) {
-                return imgPath;
-            }
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            // Wait for image to load or fail
+            await new Promise((resolve, reject) => {
+                img.onload = () => resolve(imgPath);
+                img.onerror = () => reject(new Error(`Failed to load ${imgPath}`));
+                img.src = imgPath;
+                
+                // Timeout after 2 seconds
+                setTimeout(() => reject(new Error(`Timeout loading ${imgPath}`)), 2000);
+            });
+            
+            console.log(`✅ Loaded image: ${imgPath}`);
+            return imgPath;
         } catch (e) {
-            console.log(`Image not found: ${imgPath}`);
+            console.log(`❌ Image not available: ${imgPath}`);
         }
     }
     
-    // Fallback to a placeholder image
+    // Fallback to a placeholder image if nothing works
+    console.log('⚠️ Using fallback placeholder image');
     return 'https://picsum.photos/800/800';
 }
 
@@ -477,25 +494,26 @@ function handleTouchEnd(e) {
 }
 
 function swapPieces(piece1, piece2) {
-    // Get current positions
+    // Get current positions from dataset
     const row1 = parseInt(piece1.dataset.row);
     const col1 = parseInt(piece1.dataset.col);
     const row2 = parseInt(piece2.dataset.row);
     const col2 = parseInt(piece2.dataset.col);
     
-    // Swap positions in DOM
-    const temp = piece1.cloneNode(true);
-    piece1.parentNode.replaceChild(temp, piece1);
-    piece1.parentNode.replaceChild(piece2, temp);
-    piece2.parentNode.replaceChild(piece1, piece2);
+    // Swap the background positions (which determines what part of image is shown)
+    const bgPos1 = piece1.style.backgroundPosition;
+    const bgPos2 = piece2.style.backgroundPosition;
     
-    // Update position data
+    piece1.style.backgroundPosition = bgPos2;
+    piece2.style.backgroundPosition = bgPos1;
+    
+    // Swap the dataset positions (current location in grid)
     piece1.dataset.row = row2;
     piece1.dataset.col = col2;
     piece2.dataset.row = row1;
     piece2.dataset.col = col1;
     
-    // Update gameState.pieces
+    // Update gameState.pieces to reflect new positions
     updatePiecePositions();
 }
 
