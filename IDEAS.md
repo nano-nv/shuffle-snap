@@ -139,6 +139,10 @@ This document tracks all ideas for the Shuffle Snap project, both implemented an
 
 ## 🐛 Known Issues & Bugs
 
+### Fixed
+- ✅ **Image loading issue** (2026-03-12) — Images from assets folder weren't loading due to improper async handling. Fixed by using Image object with proper onload/onerror callbacks.
+- ✅ **Drag & drop not working** (2026-03-12) — `swapPieces()` was destroying DOM structure with incorrect replaceChild calls. Fixed by swapping only background positions and dataset values instead of manipulating DOM nodes.
+
 ### To Investigate
 - [ ] Performance on very slow devices with 12×12 grid
 - [ ] Touch controls on some mobile browsers
