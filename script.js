@@ -29,6 +29,7 @@ let gameState = {
     isDragging: false,
     dragOffsetX: 0,
     dragOffsetY: 0,
+    originalTransform: '',
     hintShowing: false  // Track if hint is currently showing
 };
 
@@ -346,9 +347,10 @@ function createPuzzleBoard() {
     board.innerHTML = '';
     board.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
     
-    // Calculate optimal puzzle size (responsive)
+    // Calculate optimal puzzle size (responsive) - account for padding and borders
     const maxSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 600);
-    const pieceSize = maxSize / gridSize;
+    const paddingAndBorder = 34; // 15px padding * 2 + 2px border * 2 + some gap
+    const actualSize = maxSize - paddingAndBorder;
     board.style.width = `${maxSize}px`;
     board.style.height = `${maxSize}px`;
     
@@ -435,27 +437,27 @@ function addDragEvents(element) {
 // Global mouse move and mouse up handlers
 document.addEventListener('mousemove', handleDragMove);
 document.addEventListener('mouseup', handleDragEnd);
-    element.addEventListener('touchmove', handleTouchMove, { passive: false });
-    element.addEventListener('touchend', handleTouchEnd);
-}
 
 function handleDragStart(e) {
     if (!gameState.isPlaying || gameState.isPreviewing) return;
     
     e.preventDefault(); // Prevent default drag behavior
     
-    gameState.draggedPiece = this;
+    const piece = this;
+    gameState.draggedPiece = piece;
     gameState.isDragging = true;
     
     // Store original position for animation
-    const rect = this.getBoundingClientRect();
+    const rect = piece.getBoundingClientRect();
     gameState.dragOffsetX = e.clientX - rect.left;
     gameState.dragOffsetY = e.clientY - rect.top;
     
-    // Add dragging class and make it follow cursor
-    this.classList.add('dragging');
-    this.style.position = 'fixed';
-    this.style.zIndex = '1000';
+    // Store original transform to restore later
+    gameState.originalTransform = piece.style.transform || '';
+    
+    // Add dragging class and make it follow cursor using transform
+    piece.classList.add('dragging');
+    piece.style.zIndex = '1000';
     movePieceWithCursor(e.clientX, e.clientY);
 }
 
@@ -463,11 +465,16 @@ function movePieceWithCursor(x, y) {
     if (!gameState.draggedPiece) return;
     
     const piece = gameState.draggedPiece;
+    const rect = piece.getBoundingClientRect();
     const offsetX = gameState.dragOffsetX || 0;
     const offsetY = gameState.dragOffsetY || 0;
     
-    piece.style.left = (x - offsetX) + 'px';
-    piece.style.top = (y - offsetY) + 'px';
+    // Calculate translation from original position
+    const deltaX = x - offsetX - rect.left;
+    const deltaY = y - offsetY - rect.top;
+    
+    // Use transform translate instead of position fixed
+    piece.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.2) rotate(3deg)`;
 }
 
 function handleDragMove(e) {
@@ -476,13 +483,26 @@ function handleDragMove(e) {
     e.preventDefault();
     movePieceWithCursor(e.clientX, e.clientY);
     
-    // Find piece under cursor for drop target
+    // Find piece under cursor for drop target (excluding the dragged piece)
     const elementBelow = document.elementFromPoint(e.clientX, e.clientY);
-    const targetPiece = elementBelow ? elementBelow.closest('.puzzle-piece') : null;
+    let targetPiece = null;
+    
+    if (elementBelow) {
+        // Check if it's a puzzle piece or inside one
+        if (elementBelow.classList.contains('puzzle-piece')) {
+            targetPiece = elementBelow;
+        } else {
+            // Try to find parent puzzle piece
+            const parentPiece = elementBelow.closest('.puzzle-piece');
+            if (parentPiece) {
+                targetPiece = parentPiece;
+            }
+        }
+    }
     
     // Remove drag-over from all pieces
     document.querySelectorAll('.puzzle-piece').forEach(p => {
-        if (p !== gameState.draggedPiece) {
+        if (p !== gameState.draggedPiece && !p.classList.contains('dragging')) {
             p.classList.remove('drag-over');
         }
     });
@@ -503,12 +523,10 @@ function handleDragEnd(e) {
     
     const draggedPiece = gameState.draggedPiece;
     
-    // Remove dragging class and reset position
+    // Remove dragging class and reset transform
     draggedPiece.classList.remove('dragging');
-    draggedPiece.style.position = '';
     draggedPiece.style.zIndex = '';
-    draggedPiece.style.left = '';
-    draggedPiece.style.top = '';
+    draggedPiece.style.transform = gameState.originalTransform || '';
     
     // Check if dropped on a valid target
     if (gameState.dropTarget && gameState.dropTarget !== draggedPiece) {
