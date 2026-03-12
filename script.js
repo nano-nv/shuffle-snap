@@ -426,11 +426,11 @@ function handleDragOver(e) {
 function handleDragEnter(e) {
     if (!gameState.isPlaying || this === gameState.draggedPiece) return;
     e.preventDefault();
-    this.classList.add('drag-over');
+    // Don't add class here - it fires multiple times!
 }
 
 function handleDragLeave(e) {
-    this.classList.remove('drag-over');
+    // Don't remove here either - unreliable
 }
 
 function handleDrop(e) {
@@ -438,9 +438,12 @@ function handleDrop(e) {
     
     if (!gameState.isPlaying || !gameState.draggedPiece || this === gameState.draggedPiece) return;
     
-    swapPieces(gameState.draggedPiece, this);
+    // Clean up any drag-over classes first
+    document.querySelectorAll('.puzzle-piece').forEach(piece => {
+        piece.classList.remove('drag-over');
+    });
     
-    this.classList.remove('drag-over');
+    swapPieces(gameState.draggedPiece, this);
     checkWinCondition();
 }
 
@@ -494,24 +497,35 @@ function handleTouchEnd(e) {
 }
 
 function swapPieces(piece1, piece2) {
-    // Get current positions from dataset
-    const row1 = parseInt(piece1.dataset.row);
-    const col1 = parseInt(piece1.dataset.col);
-    const row2 = parseInt(piece2.dataset.row);
-    const col2 = parseInt(piece2.dataset.col);
+    // Get ALL position data from both pieces
+    const correctRow1 = piece1.dataset.correctRow;
+    const correctCol1 = piece1.dataset.correctCol;
+    const currentRow1 = piece1.dataset.row;
+    const currentCol1 = piece1.dataset.col;
     
-    // Swap the background positions (which determines what part of image is shown)
+    const correctRow2 = piece2.dataset.correctRow;
+    const correctCol2 = piece2.dataset.correctCol;
+    const currentRow2 = piece2.dataset.row;
+    const currentCol2 = piece2.dataset.col;
+    
+    // Swap the background positions (visual appearance)
     const bgPos1 = piece1.style.backgroundPosition;
     const bgPos2 = piece2.style.backgroundPosition;
     
     piece1.style.backgroundPosition = bgPos2;
     piece2.style.backgroundPosition = bgPos1;
     
-    // Swap the dataset positions (current location in grid)
-    piece1.dataset.row = row2;
-    piece1.dataset.col = col2;
-    piece2.dataset.row = row1;
-    piece2.dataset.col = col1;
+    // Swap BOTH current position AND correct position data
+    // This ensures the piece's identity moves with it
+    piece1.dataset.row = currentRow2;
+    piece1.dataset.col = currentCol2;
+    piece1.dataset.correctRow = correctRow2;
+    piece1.dataset.correctCol = correctCol2;
+    
+    piece2.dataset.row = currentRow1;
+    piece2.dataset.col = currentCol1;
+    piece2.dataset.correctRow = correctRow1;
+    piece2.dataset.correctCol = correctCol1;
     
     // Update gameState.pieces to reflect new positions
     updatePiecePositions();
