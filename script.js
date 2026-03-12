@@ -33,12 +33,11 @@ let gameState = {
     hintShowing: false  // Track if hint is currently showing
 };
 
-// Image Assets (you can add more images here)
+// Image Assets - Add your images to assets/images/ folder
+// Just add the filename here (the path assets/images/ is automatically added)
 const imageAssets = [
-    'assets/nature.jpg',
-    'assets/cityscape.jpg',
-    'abstract-art.jpg',
-    'animals-wildlife.jpg'
+    'nature.jpg',
+    'space01.jpg'
 ];
 
 let currentImage = null;
@@ -288,15 +287,14 @@ async function startGame(difficulty) {
 }
 
 async function selectRandomImage() {
-    // List of available images in assets folder
-    const availableImages = [
-        'assets/default-puzzle.jpg',
-        'assets/nature.jpg'
-        // Add more images here as you add them to the assets folder
-    ];
+    // Build full paths from imageAssets array
+    const imagePaths = imageAssets.map(filename => `assets/images/${filename}`);
+    
+    // Shuffle the array to randomize selection order
+    const shuffledImages = [...imagePaths].sort(() => Math.random() - 0.5);
     
     // Try each image until one loads successfully
-    for (const imgPath of availableImages) {
+    for (const imgPath of shuffledImages) {
         try {
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -318,9 +316,10 @@ async function selectRandomImage() {
         }
     }
     
-    // Fallback to a placeholder image if nothing works
-    console.log('⚠️ Using fallback placeholder image');
-    return 'https://picsum.photos/800/800';
+    // Fallback: return a solid color data URL if no images load
+    console.warn('⚠️ No images could be loaded from assets/images/. Please add images to the assets/images/ folder.');
+    console.warn('Expected image files:', imageAssets);
+    return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect width="400" height="400" fill="%23667eea"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="white" font-size="20"%3EAdd images to assets/images/%3C/text%3E%3C/svg%3E';
 }
 
 async function showPreview() {
@@ -338,29 +337,8 @@ async function showPreview() {
     
     await new Promise((resolve) => {
         img.onload = () => {
-            // Calculate aspect ratio
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            
-            let displayWidth, displayHeight;
-            
-            // Fit within max dimensions while maintaining aspect ratio
-            if (maxWidth / maxHeight > aspectRatio) {
-                // Height is limiting factor
-                displayHeight = maxHeight;
-                displayWidth = maxHeight * aspectRatio;
-            } else {
-                // Width is limiting factor
-                displayWidth = maxWidth;
-                displayHeight = maxWidth / aspectRatio;
-            }
-            
-            // Set preview image with calculated dimensions
+            // Set preview image - CSS will handle fixed sizing
             elements.previewImage.style.backgroundImage = `url(${currentImage})`;
-            elements.previewImage.style.backgroundSize = 'contain';
-            elements.previewImage.style.backgroundRepeat = 'no-repeat';
-            elements.previewImage.style.backgroundPosition = 'center';
-            elements.previewImage.style.width = `${displayWidth}px`;
-            elements.previewImage.style.height = `${displayHeight}px`;
             
             resolve();
         };
@@ -528,21 +506,21 @@ function handleClickToSwap(e) {
         const firstPiece = selectedPiece; // Save reference BEFORE resetting
         const secondPiece = piece;
         
-        swapPieces(firstPiece, secondPiece);
-        
-        // Add animations
-        firstPiece.classList.add('swapping');
-        secondPiece.classList.add('swapping');
-        
-        // Remove selection
+        // Remove selection styling first
         firstPiece.classList.remove('selected');
-        firstPiece.style.transform = '';
         firstPiece.style.boxShadow = '';
         
         // Reset selectedPiece immediately
         selectedPiece = null;
         
-        // Pop animation (use saved references)
+        // Add swapping class for animation
+        firstPiece.classList.add('swapping');
+        secondPiece.classList.add('swapping');
+        
+        // Perform the actual swap immediately
+        swapPieces(firstPiece, secondPiece);
+        
+        // Pop animation after swap
         setTimeout(() => {
             firstPiece.classList.add('swap-complete');
             secondPiece.classList.add('swap-complete');
@@ -550,11 +528,11 @@ function handleClickToSwap(e) {
             setTimeout(() => {
                 firstPiece.classList.remove('swapping', 'swap-complete');
                 secondPiece.classList.remove('swapping', 'swap-complete');
-            }, 500);
-        }, 400);
+            }, 300);
+        }, 100);
         
         // Check win
-        setTimeout(() => checkWinCondition(), 900);
+        setTimeout(() => checkWinCondition(), 500);
     }
 }
 
@@ -783,15 +761,9 @@ function swapPieces(piece1, piece2) {
     const row2 = parseInt(piece2.dataset.row);
     const col2 = parseInt(piece2.dataset.col);
     
-    // Swap the background positions (visual appearance - what image part they show)
-    const bgPos1 = piece1.style.backgroundPosition;
-    const bgPos2 = piece2.style.backgroundPosition;
-    
-    piece1.style.backgroundPosition = bgPos2;
-    piece2.style.backgroundPosition = bgPos1;
-    
     // Swap ONLY the current grid positions (where they are placed)
     // DO NOT swap correctRow/correctCol - those define the piece's IDENTITY!
+    // DO NOT swap background positions - they stay with the piece's identity
     piece1.dataset.row = row2;
     piece1.dataset.col = col2;
     piece2.dataset.row = row1;
@@ -801,8 +773,6 @@ function swapPieces(piece1, piece2) {
     
     // CRITICAL: Actually swap the pieces in the DOM so CSS Grid positions them correctly
     const parent = piece1.parentNode;
-    
-    // Use a simpler approach: get indices and reorder
     const children = Array.from(parent.children);
     const index1 = children.indexOf(piece1);
     const index2 = children.indexOf(piece2);
@@ -810,25 +780,27 @@ function swapPieces(piece1, piece2) {
     console.log('DOM indices:', index1, '↔', index2);
     
     if (index1 !== -1 && index2 !== -1) {
-        console.log('Before swap - piece1 transform:', piece1.style.transform, 'piece2 transform:', piece2.style.transform);
-        
         // Clear any transforms first
         piece1.style.transform = '';
         piece2.style.transform = '';
         
-        // Create placeholder nodes
-        const placeholder1 = document.createComment('placeholder');
-        const placeholder2 = document.createComment('placeholder');
+        // Swap DOM positions properly
+        // Save the next sibling references BEFORE any DOM manipulation
+        const next1 = piece1.nextSibling;
+        const next2 = piece2.nextSibling;
         
-        // Replace piece1 with placeholder1, piece2 with placeholder2
-        parent.replaceChild(placeholder1, piece1);
-        parent.replaceChild(placeholder2, piece2);
-        
-        console.log('After replace - children count:', parent.children.length);
-        
-        // Put piece2 in piece1's old spot, piece1 in piece2's old spot
-        parent.replaceChild(piece2, placeholder1);
-        parent.replaceChild(piece1, placeholder2);
+        // If they are adjacent, handle specially
+        if (next1 === piece2) {
+            // piece1 is immediately before piece2
+            parent.insertBefore(piece2, piece1);
+        } else if (next2 === piece1) {
+            // piece2 is immediately before piece1
+            parent.insertBefore(piece1, piece2);
+        } else {
+            // They are not adjacent - swap using saved references
+            parent.insertBefore(piece1, next2);
+            parent.insertBefore(piece2, next1);
+        }
         
         console.log('DOM swap completed');
         console.log('After swap - piece1 is now at index:', Array.from(parent.children).indexOf(piece1));
