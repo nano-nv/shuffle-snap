@@ -641,23 +641,29 @@ function updatePiecePositions() {
 // ====================================
 
 function startTimer() {
-    elements.timeLeft.textContent = gameState.timeLeft;
+    updateTimeDisplay();
     
     gameState.timerInterval = setInterval(() => {
         gameState.timeLeft--;
-        elements.timeLeft.textContent = gameState.timeLeft;
+        updateTimeDisplay();
         
         // Visual warning when time is running low
-        if (gameState.timeLeft <= 10) {
+        if (gameState.timeLeft <= 60) {
             elements.timeLeft.style.color = '#ff6b6b';
         } else {
-            elements.timeLeft.style.color = '#48dbfb';
+            elements.timeLeft.style.color = '#fff';
         }
         
         if (gameState.timeLeft <= 0) {
             endGame(false);
         }
     }, 1000);
+}
+
+function updateTimeDisplay() {
+    const minutes = Math.floor(gameState.timeLeft / 60);
+    const seconds = gameState.timeLeft % 60;
+    elements.timeLeft.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 function stopTimer() {
