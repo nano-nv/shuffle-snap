@@ -734,19 +734,22 @@ function showHint() {
     `;
     hintText.textContent = '🔍 MEMORIZE THIS! 🔍';
     
-    const hintImage = document.createElement('div');
-    // Calculate size to fit within screen with padding
-    const maxSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.7, 500);
+    const hintImage = document.createElement('img');
+    // Calculate size to fit within screen with padding (match puzzle board size)
+    const maxSize = 610; // Match the working puzzle-board size
+    
+    hintImage.src = currentImage;
     hintImage.style.cssText = `
-        width: ${maxSize}px;
-        height: ${maxSize}px;
-        background-image: url(${currentImage});
-        background-size: cover;
-        background-position: center;
+        max-width: ${maxSize}px;
+        max-height: ${maxSize}px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
         border: 4px solid #48dbfb;
         border-radius: 15px;
         box-shadow: 0 10px 40px rgba(72, 219, 251, 0.6), 
                     0 0 60px rgba(72, 219, 251, 0.3);
+        display: block;
     `;
     
     hintContainer.appendChild(hintText);
