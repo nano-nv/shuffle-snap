@@ -681,6 +681,15 @@ function swapPieces(piece1, piece2) {
     piece2.dataset.row = row1;
     piece2.dataset.col = col1;
     
+    // CRITICAL: Actually swap the pieces in the DOM so CSS Grid positions them correctly
+    const parent = piece1.parentNode;
+    const temp = document.createElement('div');
+    
+    // Simple DOM swap using placeholder
+    piece1.parentNode.replaceChild(temp, piece1);
+    piece2.parentNode.replaceChild(piece1, piece2);
+    temp.parentNode.replaceChild(piece2, temp);
+    
     // Update gameState.pieces to reflect new positions
     updatePiecePositions();
 }
