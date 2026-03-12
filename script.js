@@ -235,9 +235,27 @@ function showWinScreen(score, timeLeft) {
     elements.feedbackMessage.textContent = feedback;
 }
 
-function showGameOverScreen() {
+function showGameOverScreen(percentage) {
     hideAllScreens();
     elements.gameOverScreen.classList.remove('hidden');
+    
+    // Update the final score display to show percentage
+    if (percentage !== undefined) {
+        elements.finalScore.textContent = `${percentage}% Complete`;
+        
+        // Generate feedback based on progress
+        let feedback = '';
+        if (percentage >= 80) {
+            feedback = '🔥 So close! You were almost there! 🔥';
+        } else if (percentage >= 60) {
+            feedback = '💪 Good effort! Keep practicing! 💪';
+        } else if (percentage >= 40) {
+            feedback = '📚 Learning takes time. Try again! 📚';
+        } else {
+            feedback = '🌟 Every expert was once a beginner! 🌟';
+        }
+        elements.feedbackMessage.textContent = feedback;
+    }
 }
 
 function hideAllScreens() {
@@ -441,6 +459,9 @@ function addDragEvents(element) {
 }
 
 // Global mouse move and mouse up handlers
+let lastMouseX = 0;
+let lastMouseY = 0;
+
 document.addEventListener('mousemove', handleDragMove);
 document.addEventListener('mouseup', handleDragEnd);
 
@@ -461,6 +482,10 @@ function handleDragStart(e) {
     // Store original transform to restore later
     gameState.originalTransform = piece.style.transform || '';
     
+    // Track initial mouse position
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    
     // Add dragging class and make it follow cursor using transform
     piece.classList.add('dragging');
     piece.style.zIndex = '1000';
@@ -471,55 +496,68 @@ function movePieceWithCursor(x, y) {
     if (!gameState.draggedPiece) return;
     
     const piece = gameState.draggedPiece;
-    const rect = piece.getBoundingClientRect();
-    const offsetX = gameState.dragOffsetX || 0;
-    const offsetY = gameState.dragOffsetY || 0;
     
-    // Calculate translation from original position
-    const deltaX = x - offsetX - rect.left;
-    const deltaY = y - offsetY - rect.top;
-    
-    // Use transform translate instead of position fixed
-    piece.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.2) rotate(3deg)`;
+    // Direct positioning - no lag, follows cursor exactly
+    piece.style.position = 'fixed';
+    piece.style.left = (x - gameState.dragOffsetX) + 'px';
+    piece.style.top = (y - gameState.dragOffsetY) + 'px';
+    piece.style.transform = 'scale(1.2) rotate(3deg)';
 }
 
 function handleDragMove(e) {
     if (!gameState.isDragging || !gameState.draggedPiece) return;
     
     e.preventDefault();
-    movePieceWithCursor(e.clientX, e.clientY);
     
-    // Find piece under cursor for drop target (excluding the dragged piece)
-    const elementBelow = document.elementFromPoint(e.clientX, e.clientY);
-    let targetPiece = null;
+    // Update mouse position for delta calculation
+    const currentX = e.clientX;
+    const currentY = e.clientY;
     
-    if (elementBelow) {
-        // Check if it's a puzzle piece or inside one
-        if (elementBelow.classList.contains('puzzle-piece')) {
-            targetPiece = elementBelow;
-        } else {
-            // Try to find parent puzzle piece
-            const parentPiece = elementBelow.closest('.puzzle-piece');
-            if (parentPiece) {
-                targetPiece = parentPiece;
+    // Move piece to follow cursor (no lag)
+    movePieceWithCursor(currentX, currentY);
+    
+    // Calculate movement direction for better hit detection
+    const deltaX = currentX - lastMouseX;
+    const deltaY = currentY - lastMouseY;
+    const isMovingSignificantly = Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5;
+    
+    // Only update drop target if mouse moved significantly (prevents adjacent piece flickering)
+    if (isMovingSignificantly) {
+        // Find piece under cursor for drop target (excluding the dragged piece)
+        const elementBelow = document.elementFromPoint(currentX, currentY);
+        let targetPiece = null;
+        
+        if (elementBelow && elementBelow !== gameState.draggedPiece) {
+            // Check if it's a puzzle piece or inside one
+            if (elementBelow.classList.contains('puzzle-piece')) {
+                targetPiece = elementBelow;
+            } else {
+                // Try to find parent puzzle piece
+                const parentPiece = elementBelow.closest('.puzzle-piece');
+                if (parentPiece && parentPiece !== gameState.draggedPiece) {
+                    targetPiece = parentPiece;
+                }
             }
         }
-    }
-    
-    // Remove drag-over from all pieces
-    document.querySelectorAll('.puzzle-piece').forEach(p => {
-        if (p !== gameState.draggedPiece && !p.classList.contains('dragging')) {
-            p.classList.remove('drag-over');
+        
+        // Remove drag-over from all pieces
+        document.querySelectorAll('.puzzle-piece').forEach(p => {
+            if (p !== gameState.draggedPiece && !p.classList.contains('dragging')) {
+                p.classList.remove('drag-over');
+            }
+        });
+        
+        // Add drag-over to target piece
+        if (targetPiece) {
+            targetPiece.classList.add('drag-over');
+            gameState.dropTarget = targetPiece;
+        } else {
+            gameState.dropTarget = null;
         }
-    });
-    
-    // Add drag-over to target piece
-    if (targetPiece && targetPiece !== gameState.draggedPiece) {
-        targetPiece.classList.add('drag-over');
-        gameState.dropTarget = targetPiece;
-    } else {
-        gameState.dropTarget = null;
     }
+    
+    lastMouseX = currentX;
+    lastMouseY = currentY;
 }
 
 function handleDragEnd(e) {
@@ -529,9 +567,12 @@ function handleDragEnd(e) {
     
     const draggedPiece = gameState.draggedPiece;
     
-    // Remove dragging class and reset transform
+    // Remove dragging class and reset styles
     draggedPiece.classList.remove('dragging');
     draggedPiece.style.zIndex = '';
+    draggedPiece.style.position = '';
+    draggedPiece.style.left = '';
+    draggedPiece.style.top = '';
     draggedPiece.style.transform = gameState.originalTransform || '';
     
     // Check if dropped on a valid target
@@ -782,6 +823,19 @@ function checkWinCondition() {
     }
 }
 
+function calculateProgressPercentage() {
+    // Count how many pieces are in correct positions
+    const correctCount = gameState.pieces.filter(piece => 
+        piece.currentRow === piece.correctRow &&
+        piece.currentCol === piece.correctCol
+    ).length;
+    
+    const totalCount = gameState.pieces.length;
+    const percentage = Math.floor((correctCount / totalCount) * 100); // Integer only, no decimal
+    
+    return { correctCount, totalCount, percentage };
+}
+
 function endGame(isWin) {
     stopTimer();
     gameState.isPlaying = false;
@@ -794,7 +848,9 @@ function endGame(isWin) {
         
         showWinScreen(totalScore, gameState.timeLeft);
     } else {
-        showGameOverScreen();
+        // Timer ran out - show percentage of correctly placed pieces
+        const progress = calculateProgressPercentage();
+        showGameOverScreen(progress.percentage);
     }
 }
 
