@@ -328,8 +328,14 @@ async function showPreview() {
     elements.previewContainer.classList.remove('hidden');
     elements.puzzleContainer.classList.add('hidden');
     
-    // Set preview image
+    // Set preview image with proper sizing to fit container
+    const maxSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 600);
     elements.previewImage.style.backgroundImage = `url(${currentImage})`;
+    elements.previewImage.style.backgroundSize = 'contain';
+    elements.previewImage.style.backgroundRepeat = 'no-repeat';
+    elements.previewImage.style.backgroundPosition = 'center';
+    elements.previewImage.style.width = `${maxSize}px`;
+    elements.previewImage.style.height = `${maxSize}px`;
     
     // Countdown timer with scale animation
     let countdown = CONFIG.previewTime;
@@ -567,7 +573,37 @@ function handleDragEnd(e) {
     
     const draggedPiece = gameState.draggedPiece;
     
-    // Remove dragging class and reset styles
+    // Check if dropped on a valid target BEFORE resetting position
+    if (gameState.dropTarget && gameState.dropTarget !== draggedPiece) {
+        // Perform swap IMMEDIATELY while piece is still in fixed position
+        swapPieces(draggedPiece, gameState.dropTarget);
+        
+        // Remove drag-over styling from target
+        gameState.dropTarget.classList.remove('drag-over');
+        
+        // Add swap animation classes
+        draggedPiece.classList.add('swapping');
+        gameState.dropTarget.classList.add('swapping');
+        
+        // Add pop animation after brief delay
+        setTimeout(() => {
+            draggedPiece.classList.add('swap-complete');
+            gameState.dropTarget.classList.add('swap-complete');
+            
+            // Clean up animation classes
+            setTimeout(() => {
+                draggedPiece.classList.remove('swapping', 'swap-complete');
+                gameState.dropTarget.classList.remove('swapping', 'swap-complete');
+            }, 500);
+        }, 400);
+        
+        // Check win condition after animation completes
+        setTimeout(() => {
+            checkWinCondition();
+        }, 900);
+    }
+    
+    // NOW reset the dragged piece styles (after swap is done)
     draggedPiece.classList.remove('dragging');
     draggedPiece.style.zIndex = '';
     draggedPiece.style.position = '';
@@ -575,16 +611,12 @@ function handleDragEnd(e) {
     draggedPiece.style.top = '';
     draggedPiece.style.transform = gameState.originalTransform || '';
     
-    // Check if dropped on a valid target
-    if (gameState.dropTarget && gameState.dropTarget !== draggedPiece) {
-        animateSwap(draggedPiece, gameState.dropTarget);
-    }
-    
-    // Clean up
+    // Clean up drag-over from all pieces
     document.querySelectorAll('.puzzle-piece').forEach(piece => {
         piece.classList.remove('drag-over');
     });
     
+    // Reset state
     gameState.draggedPiece = null;
     gameState.dropTarget = null;
     gameState.isDragging = false;
@@ -623,41 +655,29 @@ function handleTouchEnd(e) {
     const elem = document.elementFromPoint(endX, endY);
     if (elem && elem.classList.contains('puzzle-piece') && elem !== touchedElement) {
         swapPieces(touchedElement, elem);
-        checkWinCondition();
+        
+        // Add animation classes
+        touchedElement.classList.add('swapping');
+        elem.classList.add('swapping');
+        
+        setTimeout(() => {
+            touchedElement.classList.add('swap-complete');
+            elem.classList.add('swap-complete');
+            
+            setTimeout(() => {
+                touchedElement.classList.remove('swapping', 'swap-complete');
+                elem.classList.remove('swapping', 'swap-complete');
+            }, 500);
+        }, 400);
+        
+        setTimeout(() => {
+            checkWinCondition();
+        }, 900);
     }
     
     touchedElement.classList.remove('dragging');
     touchedElement = null;
     touchStartPos = null;
-}
-
-function animateSwap(piece1, piece2) {
-    // Add swapping class for smooth animation
-    piece1.classList.add('swapping');
-    piece2.classList.add('swapping');
-    
-    // Perform the actual swap (data only)
-    swapPieces(piece1, piece2);
-    
-    // Remove drag-over styling
-    piece2.classList.remove('drag-over');
-    
-    // Add pop animation after brief delay
-    setTimeout(() => {
-        piece1.classList.add('swap-complete');
-        piece2.classList.add('swap-complete');
-        
-        // Clean up animation classes
-        setTimeout(() => {
-            piece1.classList.remove('swapping', 'swap-complete');
-            piece2.classList.remove('swapping', 'swap-complete');
-        }, 500);
-    }, 400);
-    
-    // Check win condition after animation completes
-    setTimeout(() => {
-        checkWinCondition();
-    }, 900);
 }
 
 function swapPieces(piece1, piece2) {
