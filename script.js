@@ -446,10 +446,8 @@ function handleDrop(e) {
     
     if (!gameState.isPlaying || !gameState.draggedPiece || this === gameState.draggedPiece) return;
     
-    swapPieces(gameState.draggedPiece, this);
-    
-    this.classList.remove('drag-over');
-    checkWinCondition();
+    // Animate the swap with smooth transition
+    animateSwap(gameState.draggedPiece, this);
 }
 
 function handleDragEnd(e) {
@@ -499,6 +497,35 @@ function handleTouchEnd(e) {
     touchedElement.classList.remove('dragging');
     touchedElement = null;
     touchStartPos = null;
+}
+
+function animateSwap(piece1, piece2) {
+    // Add swapping class for smooth animation
+    piece1.classList.add('swapping');
+    piece2.classList.add('swapping');
+    
+    // Perform the actual swap (data only)
+    swapPieces(piece1, piece2);
+    
+    // Remove drag-over styling
+    piece2.classList.remove('drag-over');
+    
+    // Add pop animation after brief delay
+    setTimeout(() => {
+        piece1.classList.add('swap-complete');
+        piece2.classList.add('swap-complete');
+        
+        // Clean up animation classes
+        setTimeout(() => {
+            piece1.classList.remove('swapping', 'swap-complete');
+            piece2.classList.remove('swapping', 'swap-complete');
+        }, 500);
+    }, 400);
+    
+    // Check win condition after animation completes
+    setTimeout(() => {
+        checkWinCondition();
+    }, 900);
 }
 
 function swapPieces(piece1, piece2) {
