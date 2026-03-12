@@ -43,16 +43,19 @@
     <!-- Game Screen -->
     <div id="game-screen" class="hidden">
         <div id="preview-container">
-            <p>MEMORIZE THE IMAGE!</p>
-            <div id="preview-image"></div>
-            <div id="preview-timer">5</div>
+            <p>🔍 MEMORIZE THIS IMAGE! 🔍</p>
+            <div id="preview-image-wrapper">
+                <div id="preview-image"></div>
+                <div id="preview-timer">5</div>
+            </div>
         </div>
         
         <div id="puzzle-container" class="hidden">
             <div id="game-header">
                 <div id="timer-display">
-                    <span class="label">TIME</span>
-                    <span id="time-left">60</span>s
+                    <span class="label">TIME LEFT</span>
+                    <span class="separator">:</span>
+                    <span id="time-left">60</span>
                 </div>
                 <button id="show-hint-btn" class="hint-button">👁️ HINT</button>
             </div>

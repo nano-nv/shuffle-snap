@@ -4,9 +4,9 @@
 // Game Configuration
 const CONFIG = {
     difficulties: {
-        easy: { gridSize: 5, timeLimit: 60 },
-        medium: { gridSize: 8, timeLimit: 90 },
-        hard: { gridSize: 12, timeLimit: 120 }
+        easy: { gridSize: 5, timeLimit: 180 },      // 3 minutes
+        medium: { gridSize: 8, timeLimit: 300 },    // 5 minutes
+        hard: { gridSize: 12, timeLimit: 600 }      // 10 minutes
     },
     previewTime: 5, // seconds to memorize image
     imageFolder: 'assets/images/',
@@ -24,7 +24,12 @@ let gameState = {
     isPreviewing: false,
     isPlaying: false,
     selectedPiece: null,
-    draggedPiece: null
+    draggedPiece: null,
+    dropTarget: null,
+    isDragging: false,
+    dragOffsetX: 0,
+    dragOffsetY: 0,
+    hintShowing: false  // Track if hint is currently showing
 };
 
 // Image Assets (you can add more images here)
@@ -307,13 +312,24 @@ async function showPreview() {
     // Set preview image
     elements.previewImage.style.backgroundImage = `url(${currentImage})`;
     
-    // Countdown timer
+    // Countdown timer with scale animation
     let countdown = CONFIG.previewTime;
     elements.previewTimer.textContent = countdown;
+    elements.previewTimer.classList.remove('scale-out');
+    elements.previewTimer.classList.add('scale-in');
     
     const interval = setInterval(() => {
         countdown--;
-        elements.previewTimer.textContent = countdown;
+        
+        // Animate timer change
+        elements.previewTimer.classList.remove('scale-in');
+        elements.previewTimer.classList.add('scale-out');
+        
+        setTimeout(() => {
+            elements.previewTimer.textContent = countdown;
+            elements.previewTimer.classList.remove('scale-out');
+            elements.previewTimer.classList.add('scale-in');
+        }, 300);
         
         if (countdown <= 0) {
             clearInterval(interval);
@@ -330,7 +346,7 @@ function createPuzzleBoard() {
     board.innerHTML = '';
     board.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
     
-    // Calculate piece size (responsive)
+    // Calculate optimal puzzle size (responsive)
     const maxSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 600);
     const pieceSize = maxSize / gridSize;
     board.style.width = `${maxSize}px`;
@@ -368,9 +384,15 @@ function createPuzzleBoard() {
         pieceElement.style.width = `${pieceSize}px`;
         pieceElement.style.height = `${pieceSize}px`;
         pieceElement.style.backgroundImage = `url(${currentImage})`;
+        
+        // CRITICAL: Set background size to match the TOTAL puzzle dimensions
+        // This ensures the image scales perfectly to fit the entire puzzle area
         pieceElement.style.backgroundSize = `${maxSize}px ${maxSize}px`;
+        pieceElement.style.backgroundRepeat = 'no-repeat';
+        pieceElement.style.backgroundPosition = 'center';
         
         // Calculate background position based on CORRECT position (what image part this piece shows)
+        // Use percentage-based positioning for proper scaling
         const bgX = (piece.correctCol / (gridSize - 1)) * 100;
         const bgY = (piece.correctRow / (gridSize - 1)) * 100;
         pieceElement.style.backgroundPosition = `${bgX}% ${bgY}%`;
@@ -403,15 +425,16 @@ function shuffleArray(array) {
 // ====================================
 
 function addDragEvents(element) {
-    element.addEventListener('dragstart', handleDragStart);
-    element.addEventListener('dragover', handleDragOver);
-    element.addEventListener('drop', handleDrop);
-    element.addEventListener('dragenter', handleDragEnter);
-    element.addEventListener('dragleave', handleDragLeave);
-    element.addEventListener('dragend', handleDragEnd);
+    // Mouse events for desktop drag-follow
+    element.addEventListener('mousedown', handleDragStart);
     
     // Touch events for mobile
     element.addEventListener('touchstart', handleTouchStart, { passive: false });
+}
+
+// Global mouse move and mouse up handlers
+document.addEventListener('mousemove', handleDragMove);
+document.addEventListener('mouseup', handleDragEnd);
     element.addEventListener('touchmove', handleTouchMove, { passive: false });
     element.addEventListener('touchend', handleTouchEnd);
 }
@@ -419,43 +442,87 @@ function addDragEvents(element) {
 function handleDragStart(e) {
     if (!gameState.isPlaying || gameState.isPreviewing) return;
     
+    e.preventDefault(); // Prevent default drag behavior
+    
     gameState.draggedPiece = this;
+    gameState.isDragging = true;
+    
+    // Store original position for animation
+    const rect = this.getBoundingClientRect();
+    gameState.dragOffsetX = e.clientX - rect.left;
+    gameState.dragOffsetY = e.clientY - rect.top;
+    
+    // Add dragging class and make it follow cursor
     this.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', '');
+    this.style.position = 'fixed';
+    this.style.zIndex = '1000';
+    movePieceWithCursor(e.clientX, e.clientY);
 }
 
-function handleDragOver(e) {
-    if (!gameState.isPlaying) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-}
-
-function handleDragEnter(e) {
-    if (!gameState.isPlaying || this === gameState.draggedPiece) return;
-    e.preventDefault();
-    this.classList.add('drag-over');
-}
-
-function handleDragLeave(e) {
-    this.classList.remove('drag-over');
-}
-
-function handleDrop(e) {
-    e.preventDefault();
+function movePieceWithCursor(x, y) {
+    if (!gameState.draggedPiece) return;
     
-    if (!gameState.isPlaying || !gameState.draggedPiece || this === gameState.draggedPiece) return;
+    const piece = gameState.draggedPiece;
+    const offsetX = gameState.dragOffsetX || 0;
+    const offsetY = gameState.dragOffsetY || 0;
     
-    // Animate the swap with smooth transition
-    animateSwap(gameState.draggedPiece, this);
+    piece.style.left = (x - offsetX) + 'px';
+    piece.style.top = (y - offsetY) + 'px';
+}
+
+function handleDragMove(e) {
+    if (!gameState.isDragging || !gameState.draggedPiece) return;
+    
+    e.preventDefault();
+    movePieceWithCursor(e.clientX, e.clientY);
+    
+    // Find piece under cursor for drop target
+    const elementBelow = document.elementFromPoint(e.clientX, e.clientY);
+    const targetPiece = elementBelow ? elementBelow.closest('.puzzle-piece') : null;
+    
+    // Remove drag-over from all pieces
+    document.querySelectorAll('.puzzle-piece').forEach(p => {
+        if (p !== gameState.draggedPiece) {
+            p.classList.remove('drag-over');
+        }
+    });
+    
+    // Add drag-over to target piece
+    if (targetPiece && targetPiece !== gameState.draggedPiece) {
+        targetPiece.classList.add('drag-over');
+        gameState.dropTarget = targetPiece;
+    } else {
+        gameState.dropTarget = null;
+    }
 }
 
 function handleDragEnd(e) {
-    this.classList.remove('dragging');
+    if (!gameState.isDragging || !gameState.draggedPiece) return;
+    
+    e.preventDefault();
+    
+    const draggedPiece = gameState.draggedPiece;
+    
+    // Remove dragging class and reset position
+    draggedPiece.classList.remove('dragging');
+    draggedPiece.style.position = '';
+    draggedPiece.style.zIndex = '';
+    draggedPiece.style.left = '';
+    draggedPiece.style.top = '';
+    
+    // Check if dropped on a valid target
+    if (gameState.dropTarget && gameState.dropTarget !== draggedPiece) {
+        animateSwap(draggedPiece, gameState.dropTarget);
+    }
+    
+    // Clean up
     document.querySelectorAll('.puzzle-piece').forEach(piece => {
         piece.classList.remove('drag-over');
     });
+    
     gameState.draggedPiece = null;
+    gameState.dropTarget = null;
+    gameState.isDragging = false;
 }
 
 // Touch events for mobile support
@@ -601,27 +668,69 @@ function stopTimer() {
 }
 
 function showHint() {
+    // Prevent multiple hints from stacking
+    if (gameState.hintShowing) return;
+    
+    gameState.hintShowing = true;
+    
     // Briefly show the original image
-    const originalPreview = document.createElement('div');
-    originalPreview.style.cssText = `
+    const hintOverlay = document.createElement('div');
+    hintOverlay.style.cssText = `
         position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 400px;
-        height: 400px;
-        background-image: url(${currentImage});
-        background-size: cover;
-        border: 5px solid #fff;
-        border-radius: 10px;
-        z-index: 1000;
-        box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        animation: fadeIn 0.3s ease;
     `;
     
-    document.body.appendChild(originalPreview);
+    const hintContainer = document.createElement('div');
+    hintContainer.style.cssText = `
+        text-align: center;
+        animation: slideUp 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    `;
     
+    const hintText = document.createElement('h3');
+    hintText.style.cssText = `
+        color: #fff;
+        margin-bottom: 20px;
+        font-size: 24px;
+        text-shadow: 0 2px 10px rgba(72, 219, 251, 0.8);
+    `;
+    hintText.textContent = '🔍 MEMORIZE THIS! 🔍';
+    
+    const hintImage = document.createElement('div');
+    // Calculate size to fit within screen with padding
+    const maxSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.7, 500);
+    hintImage.style.cssText = `
+        width: ${maxSize}px;
+        height: ${maxSize}px;
+        background-image: url(${currentImage});
+        background-size: cover;
+        background-position: center;
+        border: 4px solid #48dbfb;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(72, 219, 251, 0.6), 
+                    0 0 60px rgba(72, 219, 251, 0.3);
+    `;
+    
+    hintContainer.appendChild(hintText);
+    hintContainer.appendChild(hintImage);
+    hintOverlay.appendChild(hintContainer);
+    document.body.appendChild(hintOverlay);
+    
+    // Auto-remove after 2 seconds
     setTimeout(() => {
-        originalPreview.remove();
+        hintOverlay.style.animation = 'fadeOut 0.3s ease forwards';
+        setTimeout(() => {
+            hintOverlay.remove();
+            gameState.hintShowing = false;
+        }, 300);
     }, 2000);
 }
 
