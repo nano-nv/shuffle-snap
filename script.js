@@ -492,23 +492,24 @@ function shuffleArray(array) {
 let selectedPiece = null; // For click-to-swap
 
 function addDragEvents(element) {
-    // Mouse events for desktop drag-follow
-    element.addEventListener('mousedown', handleDragStart);
+    // DISABLED: Mouse events for desktop drag-follow
+    // element.addEventListener('mousedown', handleDragStart);
     
     // CLICK TO SWAP (simpler alternative)
     element.addEventListener('click', handleClickToSwap);
     
-    // Touch events for mobile
-    element.addEventListener('touchstart', handleTouchStart, { passive: false });
+    // DISABLED: Touch events for mobile
+    // element.addEventListener('touchstart', handleTouchStart, { passive: false });
 }
 
 function handleClickToSwap(e) {
     if (!gameState.isPlaying || gameState.isPreviewing) return;
     
-    const piece = this;
-    
-    // Prevent click from triggering drag
+    // Prevent drag from triggering on click
+    e.preventDefault();
     e.stopPropagation();
+    
+    const piece = this;
     
     if (!selectedPiece) {
         // First click - select this piece
@@ -524,32 +525,36 @@ function handleClickToSwap(e) {
         selectedPiece = null;
     } else {
         // Second click - swap!
-        swapPieces(selectedPiece, piece);
+        const firstPiece = selectedPiece; // Save reference BEFORE resetting
+        const secondPiece = piece;
+        
+        swapPieces(firstPiece, secondPiece);
         
         // Add animations
-        selectedPiece.classList.add('swapping');
-        piece.classList.add('swapping');
+        firstPiece.classList.add('swapping');
+        secondPiece.classList.add('swapping');
         
         // Remove selection
-        selectedPiece.classList.remove('selected');
-        selectedPiece.style.transform = '';
-        selectedPiece.style.boxShadow = '';
+        firstPiece.classList.remove('selected');
+        firstPiece.style.transform = '';
+        firstPiece.style.boxShadow = '';
         
-        // Pop animation
+        // Reset selectedPiece immediately
+        selectedPiece = null;
+        
+        // Pop animation (use saved references)
         setTimeout(() => {
-            selectedPiece.classList.add('swap-complete');
-            piece.classList.add('swap-complete');
+            firstPiece.classList.add('swap-complete');
+            secondPiece.classList.add('swap-complete');
             
             setTimeout(() => {
-                selectedPiece.classList.remove('swapping', 'swap-complete');
-                piece.classList.remove('swapping', 'swap-complete');
+                firstPiece.classList.remove('swapping', 'swap-complete');
+                secondPiece.classList.remove('swapping', 'swap-complete');
             }, 500);
         }, 400);
         
         // Check win
         setTimeout(() => checkWinCondition(), 900);
-        
-        selectedPiece = null;
     }
 }
 
