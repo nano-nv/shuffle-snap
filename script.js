@@ -328,14 +328,47 @@ async function showPreview() {
     elements.previewContainer.classList.remove('hidden');
     elements.puzzleContainer.classList.add('hidden');
     
-    // Set preview image with proper sizing to fit container
-    const maxSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 600);
-    elements.previewImage.style.backgroundImage = `url(${currentImage})`;
-    elements.previewImage.style.backgroundSize = 'contain';
-    elements.previewImage.style.backgroundRepeat = 'no-repeat';
-    elements.previewImage.style.backgroundPosition = 'center';
-    elements.previewImage.style.width = `${maxSize}px`;
-    elements.previewImage.style.height = `${maxSize}px`;
+    // Calculate max dimensions that fit within viewport (with padding)
+    const maxWidth = window.innerWidth * 0.9;
+    const maxHeight = window.innerHeight * 0.8;
+    
+    // Create an Image object to get natural dimensions
+    const img = new Image();
+    img.src = currentImage;
+    
+    await new Promise((resolve) => {
+        img.onload = () => {
+            // Calculate aspect ratio
+            const aspectRatio = img.naturalWidth / img.naturalHeight;
+            
+            let displayWidth, displayHeight;
+            
+            // Fit within max dimensions while maintaining aspect ratio
+            if (maxWidth / maxHeight > aspectRatio) {
+                // Height is limiting factor
+                displayHeight = maxHeight;
+                displayWidth = maxHeight * aspectRatio;
+            } else {
+                // Width is limiting factor
+                displayWidth = maxWidth;
+                displayHeight = maxWidth / aspectRatio;
+            }
+            
+            // Set preview image with calculated dimensions
+            elements.previewImage.style.backgroundImage = `url(${currentImage})`;
+            elements.previewImage.style.backgroundSize = 'contain';
+            elements.previewImage.style.backgroundRepeat = 'no-repeat';
+            elements.previewImage.style.backgroundPosition = 'center';
+            elements.previewImage.style.width = `${displayWidth}px`;
+            elements.previewImage.style.height = `${displayHeight}px`;
+            
+            resolve();
+        };
+        img.onerror = () => {
+            console.error('Failed to load preview image:', currentImage);
+            resolve();
+        };
+    });
     
     // Countdown timer with scale animation
     let countdown = CONFIG.previewTime;
@@ -456,12 +489,68 @@ function shuffleArray(array) {
 // DRAG AND DROP
 // ====================================
 
+let selectedPiece = null; // For click-to-swap
+
 function addDragEvents(element) {
     // Mouse events for desktop drag-follow
     element.addEventListener('mousedown', handleDragStart);
     
+    // CLICK TO SWAP (simpler alternative)
+    element.addEventListener('click', handleClickToSwap);
+    
     // Touch events for mobile
     element.addEventListener('touchstart', handleTouchStart, { passive: false });
+}
+
+function handleClickToSwap(e) {
+    if (!gameState.isPlaying || gameState.isPreviewing) return;
+    
+    const piece = this;
+    
+    // Prevent click from triggering drag
+    e.stopPropagation();
+    
+    if (!selectedPiece) {
+        // First click - select this piece
+        selectedPiece = piece;
+        piece.classList.add('selected');
+        piece.style.transform = 'scale(1.1)';
+        piece.style.boxShadow = '0 0 20px rgba(59, 130, 246, 0.8)';
+    } else if (selectedPiece === piece) {
+        // Click same piece - deselect
+        selectedPiece.classList.remove('selected');
+        selectedPiece.style.transform = '';
+        selectedPiece.style.boxShadow = '';
+        selectedPiece = null;
+    } else {
+        // Second click - swap!
+        swapPieces(selectedPiece, piece);
+        
+        // Add animations
+        selectedPiece.classList.add('swapping');
+        piece.classList.add('swapping');
+        
+        // Remove selection
+        selectedPiece.classList.remove('selected');
+        selectedPiece.style.transform = '';
+        selectedPiece.style.boxShadow = '';
+        
+        // Pop animation
+        setTimeout(() => {
+            selectedPiece.classList.add('swap-complete');
+            piece.classList.add('swap-complete');
+            
+            setTimeout(() => {
+                selectedPiece.classList.remove('swapping', 'swap-complete');
+                piece.classList.remove('swapping', 'swap-complete');
+            }, 500);
+        }, 400);
+        
+        // Check win
+        setTimeout(() => checkWinCondition(), 900);
+        
+        selectedPiece = null;
+    }
 }
 
 // Global mouse move and mouse up handlers
@@ -681,6 +770,8 @@ function handleTouchEnd(e) {
 }
 
 function swapPieces(piece1, piece2) {
+    console.log('Swapping pieces:', piece1.dataset.row, piece1.dataset.col, '↔', piece2.dataset.row, piece2.dataset.col);
+    
     // Get current positions (where pieces are NOW in the grid)
     const row1 = parseInt(piece1.dataset.row);
     const col1 = parseInt(piece1.dataset.col);
@@ -701,14 +792,33 @@ function swapPieces(piece1, piece2) {
     piece2.dataset.row = row1;
     piece2.dataset.col = col1;
     
+    console.log('After swap data:', piece1.dataset.row, piece1.dataset.col, '↔', piece2.dataset.row, piece2.dataset.col);
+    
     // CRITICAL: Actually swap the pieces in the DOM so CSS Grid positions them correctly
     const parent = piece1.parentNode;
-    const temp = document.createElement('div');
     
-    // Simple DOM swap using placeholder
-    piece1.parentNode.replaceChild(temp, piece1);
-    piece2.parentNode.replaceChild(piece1, piece2);
-    temp.parentNode.replaceChild(piece2, temp);
+    // Use a simpler approach: get indices and reorder
+    const children = Array.from(parent.children);
+    const index1 = children.indexOf(piece1);
+    const index2 = children.indexOf(piece2);
+    
+    console.log('DOM indices:', index1, '↔', index2);
+    
+    if (index1 !== -1 && index2 !== -1) {
+        // Create placeholder nodes
+        const placeholder1 = document.createComment('placeholder');
+        const placeholder2 = document.createComment('placeholder');
+        
+        // Replace piece1 with placeholder1, piece2 with placeholder2
+        parent.replaceChild(placeholder1, piece1);
+        parent.replaceChild(placeholder2, piece2);
+        
+        // Put piece2 in piece1's old spot, piece1 in piece2's old spot
+        parent.replaceChild(piece2, placeholder1);
+        parent.replaceChild(piece1, placeholder2);
+        
+        console.log('DOM swap completed');
+    }
     
     // Update gameState.pieces to reflect new positions
     updatePiecePositions();
