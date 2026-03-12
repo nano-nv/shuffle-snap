@@ -810,6 +810,12 @@ function swapPieces(piece1, piece2) {
     console.log('DOM indices:', index1, '↔', index2);
     
     if (index1 !== -1 && index2 !== -1) {
+        console.log('Before swap - piece1 transform:', piece1.style.transform, 'piece2 transform:', piece2.style.transform);
+        
+        // Clear any transforms first
+        piece1.style.transform = '';
+        piece2.style.transform = '';
+        
         // Create placeholder nodes
         const placeholder1 = document.createComment('placeholder');
         const placeholder2 = document.createComment('placeholder');
@@ -818,11 +824,15 @@ function swapPieces(piece1, piece2) {
         parent.replaceChild(placeholder1, piece1);
         parent.replaceChild(placeholder2, piece2);
         
+        console.log('After replace - children count:', parent.children.length);
+        
         // Put piece2 in piece1's old spot, piece1 in piece2's old spot
         parent.replaceChild(piece2, placeholder1);
         parent.replaceChild(piece1, placeholder2);
         
         console.log('DOM swap completed');
+        console.log('After swap - piece1 is now at index:', Array.from(parent.children).indexOf(piece1));
+        console.log('After swap - piece2 is now at index:', Array.from(parent.children).indexOf(piece2));
     }
     
     // Update gameState.pieces to reflect new positions
